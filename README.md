@@ -1,3 +1,4 @@
+# <img src="GLIMP-AurumPrestigeLabs.ico" width="40" height="40"> Glimp - Fast Note Taker
 # ⚡ Glimp - Fast Note Taker
 
 **Glimp** (short for *Glimpse*) is a lightweight utility designed to capture the glimmer of an idea before it fades away. Fast, intuitive, and efficient.
