@@ -22,10 +22,16 @@ Glimp is a **portable application** written in **AutoIt**. It does not require a
 * `ALT + SHIFT + N`: Quick text note.
 * `ALT + SHIFT + V`: Show/Hide the Dashboard.
 
-## 🤝 Support the Project
-If Glimp helps you stay organized, consider supporting our work:
-* ☕ [Support us on Ko-fi](https://ko-fi.com/aurumprestigelabs)
-* ⭐ Star this repository on GitHub!
+## 🗺️ Future Vision & Roadmap
+Want to know what's coming next? Check out our official [Project Roadmap](ROADMAP.md) to see upcoming features like **Cloud Sync**, **Mobile App** support, and more. 🚀
+
+## 📩 Contact & Support
+Have a suggestion or found a bug? We'd love to hear from you!
+
+* Lead Developer: [Aurum Prestige Labs](https://github.com/AurumPrestigeLabs)
+* **Bug Reports & Ideas:** Please open a [GitHub Issue](https://github.com/AurumPrestigeLabs/Glimp/issues)
+* **Support the Project:** ☕ [Buy us a coffee on Ko-fi](https://ko-fi.com/aurumprestigelabs)
+* ⭐ **Star this repository** on GitHub if you find it useful!
 
 ## 📜 Credits & License
 * **Original Idea:** [Luca D'Este](https://github.com/luca-deste)
