@@ -1,4 +1,15 @@
-﻿; Glimp
+﻿#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Icon=icon logo\GLIMP-AurumPrestigeLabs.ico
+#AutoIt3Wrapper_Outfile_x64=Glimp v2.1.exe
+#AutoIt3Wrapper_Res_Comment=Glimpse your ideas before they fade.
+#AutoIt3Wrapper_Res_Description=Glimp - Fast Note Taker & Idea Capturing Utility
+#AutoIt3Wrapper_Res_Fileversion=2.1.0.2
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_ProductName=Aurum.Prestige.Labs
+#AutoIt3Wrapper_Res_CompanyName=Aurum Prestige Labs
+#AutoIt3Wrapper_Res_LegalCopyright=© 2026 Aurum Prestige Labs. Original idea by Luca D'Este.
+#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
+; Glimp
 ; Copyright (C) 2026 Aurum Prestige Labs
 ;
 ; This program is free software: you can redistribute it and/or modify
@@ -12,17 +23,6 @@
 ;
 ; You should have received a copy of the GNU General Public License
 ; along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
-#AutoIt3Wrapper_Icon=icon logo\GLIMP-AurumPrestigeLabs.ico
-#AutoIt3Wrapper_Outfile_x64=Glimp v2.1.exe
-#AutoIt3Wrapper_Res_Comment=Glimpse your ideas before they fade.
-#AutoIt3Wrapper_Res_Description=Glimp - Fast Note Taker & Idea Capturing Utility
-#AutoIt3Wrapper_Res_Fileversion=2.1.0.2
-#AutoIt3Wrapper_Res_ProductName=Aurum.Prestige.Labs
-#AutoIt3Wrapper_Res_CompanyName=Aurum Prestige Labs
-#AutoIt3Wrapper_Res_LegalCopyright=© 2026 Aurum Prestige Labs. Original concept by Luca D'Este
-#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 
 #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
@@ -220,26 +220,33 @@ Func ShowAbout()
     GUICtrlCreateLabel("GLIMP - Fast Note Taker", 70, 20, 400, 25)
     GUICtrlSetFont(-1, 14, 800, 0, "Segoe UI")
 
-    ; --- RETTANGOLO "CREDITS & SOCIAL" ---
-    GUICtrlCreateGroup(" Original Concept & Credits ", 20, 65, 460, 110)
+	; --- RETTANGOLO "CREDITS" ---
+    GUICtrlCreateGroup(" Credits ", 20, 65, 460, 130) ; Alzato leggermente (130 invece di 110)
     GUICtrlSetFont(-1, 9, 600, 0, "Segoe UI")
 
-        GUICtrlCreateLabel("Luca D'Este", 40, 90, 400, 20)
+        GUICtrlCreateLabel("Original Idea: Luca D'Este", 40, 90, 400, 20)
         GUICtrlSetFont(-1, 10, 800, 0, "Segoe UI")
 
-        ; Link LinkedIn
-        GUICtrlCreateLabel("LinkedIn Profile", 40, 115, 120, 20)
+        ; Link LinkedIn (RIPRISTINATO)
+        GUICtrlCreateLabel("LinkedIn Profile", 40, 115, 110, 20)
         GUICtrlSetFont(-1, 10, 400, 4, "Segoe UI")
         GUICtrlSetColor(-1, 0x0000FF)
         GUICtrlSetCursor(-1, 0)
-        GUICtrlSetOnEvent(-1, "_OpenLinkedIn")
+        GUICtrlSetOnEvent(-1, "_OpenLinkedIn") ; <--- Usa la funzione che punta al post LinkedIn
 
-        ; Link GitHub (Tuo)
-        GUICtrlCreateLabel("Personal GitHub", 180, 115, 120, 20)
+        ; Link GitHub Autore
+        GUICtrlCreateLabel("Author's GitHub", 160, 115, 110, 20)
         GUICtrlSetFont(-1, 10, 400, 4, "Segoe UI")
         GUICtrlSetColor(-1, 0x0000FF)
         GUICtrlSetCursor(-1, 0)
-        GUICtrlSetOnEvent(-1, "_OpenMyGitHub") ; <--- Nuova funzione da aggiungere sotto
+        GUICtrlSetOnEvent(-1, "_OpenLucaGitHub")
+
+        ; Link Lab GitHub
+        GUICtrlCreateLabel("Lab GitHub", 280, 115, 110, 20)
+        GUICtrlSetFont(-1, 10, 400, 4, "Segoe UI")
+        GUICtrlSetColor(-1, 0x0000FF)
+        GUICtrlSetCursor(-1, 0)
+        GUICtrlSetOnEvent(-1, "_OpenMyGitHub")
 
     GUICtrlCreateGroup("", -99, -99, 1, 1) ; Chiude il gruppo graficamente
 
@@ -280,7 +287,7 @@ Func ShowAbout()
     GUISetState(@SW_SHOW, $hAboutGui)
 EndFunc
 
-; Link LinkedIn
+	; Link LinkedIn
     Local $idLnk1 = GUICtrlCreateLabel("LinkedIn: clicca qui", 70, 75, 400, 20)
     GUICtrlSetColor(-1, 0x0000FF)
     GUICtrlSetFont(-1, 10, 400, 4) ; Sottolineato
@@ -291,10 +298,6 @@ EndFunc
     GUICtrlSetColor(-1, 0x0000FF)
     GUICtrlSetFont(-1, 10, 400, 4)
     GUICtrlSetOnEvent(-1, "_OpenGitHub")
-
-Func DonateLink()
-    ShellExecute("https://ko-fi.com/aurumprestigelabs")
-EndFunc
 
 ; --- 5. LOGICA CORE ---
 Func QuickNote()
@@ -589,13 +592,21 @@ Func _OpenLinkedIn()
     ShellExecute("https://linkedin.com/feed/update/urn:li:activity:7434843833432985600/")
 EndFunc
 
-Func _OpenGitHub()
-    ShellExecute("https://github.com/luca-deste/Fnote")
+Func _OpenLucaGitHub()
+    ShellExecute("https://github.com/luca-deste")
 EndFunc
 
 Func _OpenMyGitHub()
-    ; Sostituisci il link qui sotto quando avrai creato il tuo profilo
-    ShellExecute("https://github.com/tuo-username-qui")
+    ShellExecute("https://github.com/AurumPrestigeLabs")
+EndFunc
+
+; Questa è quella che mancava e causava l'errore!
+Func _OpenGitHub()
+    ShellExecute("https://github.com/AurumPrestigeLabs/Glimp")
+EndFunc
+
+Func DonateLink()
+    ShellExecute("https://ko-fi.com/aurumprestigelabs")
 EndFunc
 
 Func _CloseAbout()
