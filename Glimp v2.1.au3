@@ -115,12 +115,6 @@ Func ShowGUI()
     GUICtrlSetOnEvent(GUICtrlCreateMenuItem($dTxt.Item("About"), $mHelp), "ShowAbout")
     GUICtrlSetOnEvent(GUICtrlCreateMenuItem($dTxt.Item("Donate"), $mHelp), "DonateLink")
 
-    ; Pulsante Donazione Icona
-	;Local $idBtnCoffee = GUICtrlCreateButton("", 1150, 22, 40, 35, BitOR($BS_ICON, $WS_TABSTOP))
-    ;GUICtrlSetImage($idBtnCoffee, "shell32.dll", 174) ; L'icona dello scudo/shield
-    ;GUICtrlSetTip(-1, $sLang = "IT" ? "Sostieni Aurum Prestige Labs" : "Support Aurum Prestige Labs")
-    ;GUICtrlSetOnEvent(-1, "DonateLink")
-
 	; --- PULSANTE DONAZIONE (Stile Emoji Moderna) ---
     Local $idBtnCoffee = GUICtrlCreateButton("☕", 1150, 22, 40, 35)
 
@@ -199,6 +193,10 @@ Func ShowGUI()
     GUICtrlSetOnEvent($idMenuDel, "DeleteNote")
     GUICtrlSetColor($idMenuDel, 0xFF0000) ;Rosso per sicurezza
 
+	; --- SCORCIATOIE DA TASTIERA (ACCELERATORS) ---
+    Local $aAccel[1][2] = [["{DEL}", $idBtnDel]] ; Collega il tasto CANC al pulsante DELETE
+    GUISetAccelerators($aAccel)
+
     GUIRegisterMsg($WM_NOTIFY, "WM_NOTIFY")
     LoadColors()
     LoadData()
@@ -206,7 +204,7 @@ Func ShowGUI()
     GUISetState(@SW_SHOW)
 EndFunc
 
-; --- 4. FUNZIONI INFORMATIVE (RIPRISTINATE) ---
+; --- 4. FUNZIONI INFORMATIVE ---
 
 Func ShowHowTo()
     Local $m = "Glimp Quick Guide:" & @CRLF & @CRLF & _
@@ -369,10 +367,11 @@ Func LoadData()
     UpdateUIState()
 EndFunc
 
-Func UpdateFileRecord($idx, $sNewTag, $sNewNote, $bDelete = False)
+Func UpdateFileRecord($idx, $sNewTag, $sNewNote, $bDelete = False, $bQuiet = False)
     Local $sDateOra = _GUICtrlListView_GetItemText($idList, $idx, 0)
     Local $sDataFile = StringLeft($sDateOra, 10), $sTargetFile = $LOG_DIR & "\notes_" & $sDataFile & ".txt"
     Local $sOldLine = $sDateOra & "|" & _GUICtrlListView_GetItemText($idList, $idx, 1) & "|" & _GUICtrlListView_GetItemText($idList, $idx, 2)
+
     If FileExists($sTargetFile) Then
         Local $sContent = FileRead($sTargetFile)
         If $bDelete Then
@@ -381,19 +380,34 @@ Func UpdateFileRecord($idx, $sNewTag, $sNewNote, $bDelete = False)
         Else
             $sContent = StringReplace($sContent, $sOldLine, $sDateOra & "|" & $sNewTag & "|" & $sNewNote)
         EndIf
+
         Local $hFile = FileOpen($sTargetFile, 2)
         FileWrite($hFile, $sContent)
         FileClose($hFile)
-        LoadData()
+
+        ; Se $bQuiet è True, non ricarichiamo la lista (utile per i cicli for)
+        If Not $bQuiet Then LoadData()
     EndIf
 EndFunc
 
 Func ExportCSV()
-    Local $sSave = FileSaveDialog("Export CSV", @DesktopDir, "CSV (*.csv)", 18, "glimp_export.csv")
+    Local $iCount = 0, $sLastTag = "glimp_export"
+    ; Controlliamo se c'è una selezione singola per il nome file
+    For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            $iCount += 1
+            $sLastTag = _GUICtrlListView_GetItemText($idList, $i, 1)
+        EndIf
+    Next
+
+    Local $sDefaultName = ($iCount = 1) ? _CleanFileName($sLastTag) & ".csv" : "glimp_export.csv"
+    Local $sSave = FileSaveDialog("Export CSV", @DesktopDir, "CSV (*.csv)", 18, $sDefaultName)
+
     If @error Then Return
-    Local $hFile = FileOpen($sSave, 2), $iCount = _GUICtrlListView_GetItemCount($idList)
+
+    Local $hFile = FileOpen($sSave, 2)
     FileWriteLine($hFile, "Data;Tag;Nota;Path")
-    For $i = 0 To $iCount - 1
+    For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
         FileWriteLine($hFile, _GUICtrlListView_GetItemText($idList, $i, 0) & ";" & _GUICtrlListView_GetItemText($idList, $i, 1) & ";" & _GUICtrlListView_GetItemText($idList, $i, 2) & ";" & _GUICtrlListView_GetItemText($idList, $i, 3))
     Next
     FileClose($hFile)
@@ -401,17 +415,19 @@ EndFunc
 
 Func ExportMultiTxt()
     Local $sCombined = "", $iCount = 0, $sLastTag = "Glimp_Export"
+
+    ; Prima cicliamo per raccogliere i dati e contare
     For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
         If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
             $iCount += 1
-            $sLastTag = _GUICtrlListView_GetItemText($idList, $i, 1) ; Prende il Tag
+            $sLastTag = _GUICtrlListView_GetItemText($idList, $i, 1)
             $sCombined &= "DATE: " & _GUICtrlListView_GetItemText($idList, $i, 0) & @CRLF & "TAG: " & $sLastTag & @CRLF & "NOTE: " & _GUICtrlListView_GetItemText($idList, $i, 2) & @CRLF & "---" & @CRLF
         EndIf
     Next
 
     If $sCombined <> "" Then
-        ; Se è una sola nota, usa il Tag come nome file, altrimenti il nome generico
-        Local $sDefaultName = ($iCount = 1) ? $sLastTag & ".txt" : "Glimp_MultiExport.txt"
+        ; Ora che abbiamo $iCount e $sLastTag, creiamo il nome default
+        Local $sDefaultName = ($iCount = 1) ? _CleanFileName($sLastTag) & ".txt" : "Glimp_MultiExport.txt"
         Local $sSave = FileSaveDialog("Export Text", @DesktopDir, "Text (*.txt)", 18, $sDefaultName)
         If Not @error Then FileWrite($sSave, $sCombined)
     EndIf
@@ -421,6 +437,7 @@ Func ExportMultiDoc()
     Local $sCombined = "{\rtf1\ansi\deff0 {\fonttbl {\f0 Arial;}}" & @CRLF
     Local $iCount = 0, $sLastTag = "Glimp_Export"
 
+    ; 1. Ciclo per raccogliere dati e contare le selezioni
     For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
         If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
             $iCount += 1
@@ -433,18 +450,24 @@ Func ExportMultiDoc()
     Next
     $sCombined &= "}"
 
+    ; 2. Gestione del salvataggio
     If $iCount > 0 Then
-        ; Se è una sola nota, usa il Tag come nome file, altrimenti il nome generico
-        Local $sDefaultName = ($iCount = 1) ? $sLastTag & ".doc" : "Glimp_MultiExport.doc"
+        ; Usiamo _CleanFileName per assicurarci che il Tag sia un nome file valido
+        Local $sDefaultName = ($iCount = 1) ? _CleanFileName($sLastTag) & ".doc" : "Glimp_MultiExport.doc"
+
         Local $sSave = FileSaveDialog("Export Word Document", @DesktopDir, "Word Doc (*.doc)", 18, $sDefaultName)
+
         If Not @error Then
+            ; Controllo estensione
             If Not StringInStr($sSave, ".doc") Then $sSave &= ".doc"
+
             Local $hFile = FileOpen($sSave, 2)
             FileWrite($hFile, $sCombined)
             FileClose($hFile)
             MsgBox(64, $APP_NAME, "Export completed!")
         EndIf
     Else
+        ; Avviso se l'utente non ha selezionato nulla
         MsgBox(48, $APP_NAME, "Please select at least one note to export.")
     EndIf
 EndFunc
@@ -547,19 +570,58 @@ Func UpdateUIState()
 EndFunc
 
 Func WM_NOTIFY($hWnd, $iMsg, $iwParam, $ilParam)
-    Local $tNMHDR = DllStructCreate($tagNMHDR, $ilParam), $hWndFrom = DllStructGetData($tNMHDR, "hWndFrom"), $iCode = DllStructGetData($tNMHDR, "Code")
+    Local $tNMHDR = DllStructCreate($tagNMHDR, $ilParam)
+    Local $hWndFrom = DllStructGetData($tNMHDR, "hWndFrom")
+    Local $iCode = DllStructGetData($tNMHDR, "Code")
+
     If $hWndFrom = GUICtrlGetHandle($idList) Then
-        If $iCode = $NM_CUSTOMDRAW Then
-            Local $tNMLVCUSTOMDRAW = DllStructCreate($tagNMLVCUSTOMDRAW, $ilParam), $dwDrawStage = DllStructGetData($tNMLVCUSTOMDRAW, "dwDrawStage")
-            If $dwDrawStage = $CDDS_PREPAINT Then Return $CDRF_NOTIFYITEMDRAW
-            If $dwDrawStage = $CDDS_ITEMPREPAINT Then
-                Local $iItem = DllStructGetData($tNMLVCUSTOMDRAW, "dwItemSpec"), $sTag = _GUICtrlListView_GetItemText($idList, $iItem, 1)
-                If $TagColors.Exists($sTag) Then DllStructSetData($tNMLVCUSTOMDRAW, "clrTextBk", $TagColors.Item($sTag))
-                Return $CDRF_NEWFONT
-            EndIf
-        ElseIf $iCode = $NM_CLICK Or $iCode = $LVN_ITEMCHANGED Then
-            UpdateUIState()
-        EndIf
+        Switch $iCode
+            Case $NM_CUSTOMDRAW
+                Local $tCustomDraw = DllStructCreate($tagNMLVCUSTOMDRAW, $ilParam)
+                Local $dwDrawStage = DllStructGetData($tCustomDraw, "dwDrawStage")
+
+                ; Fase 1: Richiesta di notifica per ogni riga
+                If $dwDrawStage = $CDDS_PREPAINT Then Return $CDRF_NOTIFYITEMDRAW
+
+                ; Fase 2: Colorazione della riga specifica
+                If $dwDrawStage = $CDDS_ITEMPREPAINT Then
+                    Local $iIndex = DllStructGetData($tCustomDraw, "dwItemSpec")
+                    Local $sTag = _GUICtrlListView_GetItemText($idList, $iIndex, 1)
+
+                    ; Se il Tag esiste nel dizionario colori, applicalo
+                    If $TagColors.Exists($sTag) Then
+                        Local $nCol = $TagColors.Item($sTag)
+
+                        ; AutoIt CustomDraw usa il formato BGR (Blue-Green-Red)
+                        ; Invertiamo i canali se necessario, ma di solito i colori da _ChooseColor sono già compatibili
+                        DllStructSetData($tCustomDraw, "clrTextBk", $nCol)
+
+                        ; Calcolo contrasto per il testo (Bianco se lo sfondo è scuro)
+                        Local $nBlue  = BitAND(BitShift($nCol, 16), 0xFF)
+                        Local $nGreen = BitAND(BitShift($nCol, 8), 0xFF)
+                        Local $nRed   = BitAND($nCol, 0xFF)
+                        Local $brightness = (($nRed * 299) + ($nGreen * 587) + ($nBlue * 114)) / 1000
+
+                        If $brightness < 128 Then
+                            DllStructSetData($tCustomDraw, "clrText", 0xFFFFFF) ; Testo Bianco
+                        Else
+                            DllStructSetData($tCustomDraw, "clrText", 0x000000) ; Testo Nero
+                        EndIf
+
+                        Return $CDRF_NEWFONT
+                    EndIf
+                    Return $CDRF_DODEFAULT
+                EndIf
+
+            Case $NM_CLICK
+                Local $tItem = DllStructCreate($tagNMITEMACTIVATE, $ilParam)
+                Local $iIndex = DllStructGetData($tItem, "Index")
+                If $iIndex <> -1 Then _GUICtrlListView_SetItemSelected($idList, $iIndex)
+                UpdateUIState()
+
+            Case $LVN_ITEMCHANGED
+                UpdateUIState()
+        EndSwitch
     EndIf
     Return $GUI_RUNDEFMSG
 EndFunc
@@ -573,11 +635,29 @@ Func CaptureWithNote()
 EndFunc
 
 Func EditTag()
-    Local $idx = _GUICtrlListView_GetNextItem($idList)
-    If $idx <> -1 Then
-        Local $new = InputBox("Edit Tag", "New tag:", _GUICtrlListView_GetItemText($idList, $idx, 1))
-        If Not @error Then UpdateFileRecord($idx, $new, _GUICtrlListView_GetItemText($idList, $idx, 2))
-    EndIf
+    Local $iCount = _GUICtrlListView_GetItemCount($idList)
+    Local $sNewTag = ""
+    Local $bFirst = True
+    Local $bHasChanged = False
+
+    For $i = 0 To $iCount - 1
+        ; Controlliamo se la riga è spuntata o selezionata
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            If $bFirst Then
+                ; Chiediamo il nuovo tag solo la prima volta
+                $sNewTag = InputBox("Edit Tag Multiplo", "Nuovo tag per gli elementi selezionati:", _GUICtrlListView_GetItemText($idList, $i, 1))
+                If @error Or $sNewTag = "" Then Return
+                $bFirst = False
+            EndIf
+
+            ; Applichiamo la modifica (Passiamo True alla fine per non ricaricare la lista a ogni giro)
+            UpdateFileRecord($i, $sNewTag, _GUICtrlListView_GetItemText($idList, $i, 2), False, True)
+            $bHasChanged = True
+        EndIf
+    Next
+
+    ; Solo ora che il ciclo è finito, ricarichiamo la lista una volta sola
+    If $bHasChanged Then LoadData()
 EndFunc
 
 Func EditNote()
@@ -589,8 +669,56 @@ Func EditNote()
 EndFunc
 
 Func DeleteNote()
-    Local $idx = _GUICtrlListView_GetNextItem($idList)
-    If $idx <> -1 And MsgBox(36, $APP_NAME, $dTxt.Item("DelMsg")) = 6 Then UpdateFileRecord($idx, "", "", True)
+    Local $iCount = _GUICtrlListView_GetItemCount($idList)
+    Local $bDeleted = False
+
+    ; 1. Verifichiamo se c'è almeno una selezione/spunta
+    Local $hasSelection = False
+    For $i = 0 To $iCount - 1
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            $hasSelection = True
+            ExitLoop
+        EndIf
+    Next
+
+    If Not $hasSelection Then Return
+
+    ; 2. Chiediamo conferma UNA SOLA VOLTA
+    If MsgBox(36, $APP_NAME, $dTxt.Item("DelMsg")) <> 6 Then Return
+
+    ; 3. Eseguiamo la cancellazione (Ciclo inverso obbligatorio)
+    ; NOTA: Usiamo una versione "silenziosa" di UpdateFileRecord o gestiamo il refresh qui
+    For $i = $iCount - 1 To 0 Step -1
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            ; Chiamiamo UpdateFileRecord ma dobbiamo assicurarci che NON chiami LoadData() internamente
+            ; altrimenti il ciclo si rompe.
+            _InternalQuietDelete($i)
+            $bDeleted = True
+        EndIf
+    Next
+
+    ; 4. Refresh finale
+    If $bDeleted Then
+        GUICtrlSetState($idSelectAll, $GUI_UNCHECKED)
+        LoadData()
+        MsgBox(64, $APP_NAME, "Eliminazione completata!")
+    EndIf
+EndFunc
+
+Func _InternalQuietDelete($idx)
+    Local $sDateOra = _GUICtrlListView_GetItemText($idList, $idx, 0)
+    Local $sDataFile = StringLeft($sDateOra, 10)
+    Local $sTargetFile = $LOG_DIR & "\notes_" & $sDataFile & ".txt"
+    Local $sOldLine = $sDateOra & "|" & _GUICtrlListView_GetItemText($idList, $idx, 1) & "|" & _GUICtrlListView_GetItemText($idList, $idx, 2)
+
+    If FileExists($sTargetFile) Then
+        Local $sContent = FileRead($sTargetFile)
+        $sContent = StringReplace($sContent, $sOldLine & @CRLF, "")
+        $sContent = StringReplace($sContent, $sOldLine, "")
+        Local $hFile = FileOpen($sTargetFile, 2)
+        FileWrite($hFile, $sContent)
+        FileClose($hFile)
+    EndIf
 EndFunc
 
 Func OpenMedia()
@@ -604,15 +732,42 @@ Func OpenMediaFolder()
 EndFunc
 
 Func PickColorPalette()
-    Local $idx = _GUICtrlListView_GetNextItem($idList)
-    If $idx = -1 Then Return
-    Local $sTag = _GUICtrlListView_GetItemText($idList, $idx, 1)
-    Local $iCol = _ChooseColor(2, 0, 2, $hMainGui)
-    If $iCol <> -1 Then
-        Local $iRGB = BitOR(BitAnd($iCol, 0x00FF00), BitShift(BitAnd($iCol, 0x0000FF), -16), BitShift(BitAnd($iCol, 0xFF0000), 16))
-        IniWrite($INI_FILE, "colors", $sTag, $iRGB)
+    Local $iCount = _GUICtrlListView_GetItemCount($idList)
+    Local $iCol = -1
+    Local $bColorChosen = False
+    Local $aTagsModificati = ObjCreate("Scripting.Dictionary")
+
+    For $i = 0 To $iCount - 1
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            ; Scegliamo il colore solo alla prima riga trovata
+            If Not $bColorChosen Then
+                Local $iRGB = _ChooseColor(2, 0, 2, $hMainGui) ; Qui otteniamo il colore RGB
+                If $iRGB = -1 Then Return ; Utente ha premuto Annulla
+
+                ; --- INIZIO CONVERSIONE RGB -> BGR ---
+                Local $nRed = BitAND($iRGB, 0xFF)
+                Local $nGreen = BitAND(BitShift($iRGB, 8), 0xFF)
+                Local $nBlue = BitAND(BitShift($iRGB, 16), 0xFF)
+
+                ; Ricostruiamo il colore invertendo Rosso e Blu
+                $iCol = BitOR(BitShift($nRed, -16), BitShift($nGreen, -8), $nBlue)
+                ; --- FINE CONVERSIONE ---
+
+                $bColorChosen = True
+            EndIf
+
+            Local $sTag = _GUICtrlListView_GetItemText($idList, $i, 1)
+
+            If Not $aTagsModificati.Exists($sTag) Then
+                IniWrite($INI_FILE, "colors", $sTag, $iCol) ; Salviamo il colore BGR corretto
+                $aTagsModificati.Add($sTag, 1)
+            EndIf
+        EndIf
+    Next
+
+    If $bColorChosen Then
         LoadColors()
-        _GUICtrlListView_RedrawItems($idList, 0, _GUICtrlListView_GetItemCount($idList) - 1)
+        _GUICtrlListView_RedrawItems($idList, 0, $iCount - 1)
     EndIf
 EndFunc
 
@@ -628,34 +783,40 @@ EndFunc
 
 Func SelectAllAction()
     Local $b = (GUICtrlRead($idSelectAll) = $GUI_CHECKED)
-    For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
+    Local $iCount = _GUICtrlListView_GetItemCount($idList)
+
+    ; Blocchiamo il ridisegno per evitare sfarfallio
+    _GUICtrlListView_BeginUpdate($idList)
+
+    For $i = 0 To $iCount - 1
         _GUICtrlListView_SetItemChecked($idList, $i, $b)
+        ; AGGIUNTA: Evidenzia anche la riga in blu (o toglie l'evidenziazione)
+        _GUICtrlListView_SetItemSelected($idList, $i, $b)
     Next
+
+    _GUICtrlListView_EndUpdate($idList)
+
+    ; AGGIUNTA: Forza l'aggiornamento dei pulsanti (TAG, NOTE, DEL)
+    UpdateUIState()
 EndFunc
 
+; --- GESTIONE INTERFACCIA E NAVIGAZIONE ---
 Func ToggleGUI()
-    If $hMainGui <> 0 And BitAnd(WinGetState($hMainGui), 2) Then
-        GUISetState(@SW_HIDE, $hMainGui)
+    If $hMainGui = 0 Then
+        ShowGUI()
     Else
-        If $hMainGui = 0 Then ShowGUI()
-        GUISetState(@SW_SHOW, $hMainGui)
-        WinActivate($hMainGui)
+        ; Check if the window is currently hidden (16) or minimized
+        If BitAND(WinGetState($hMainGui), 16) Then
+            GUISetState(@SW_SHOW, $hMainGui)
+            WinActivate($hMainGui)
+            LoadData() ; Refresh data when restored
+        Else
+            GUISetState(@SW_HIDE, $hMainGui)
+        EndIf
     EndIf
 EndFunc
 
-Func TerminateApp()
-    Exit
-EndFunc
-
-; --- 8. START ---
-SetupTray()
-HotKeySet("+!n", "QuickNote")
-HotKeySet("+!v", "ToggleGUI")
-
-While 1
-    Sleep(100)
-WEnd
-
+; --- GESTIONE LINK E ABOUT ---
 Func _OpenLinkedIn()
     ShellExecute("https://linkedin.com/feed/update/urn:li:activity:7434843833432985600/")
 EndFunc
@@ -668,7 +829,6 @@ Func _OpenMyGitHub()
     ShellExecute("https://github.com/AurumPrestigeLabs")
 EndFunc
 
-; Questa è quella che mancava e causava l'errore!
 Func _OpenGitHub()
     ShellExecute("https://github.com/AurumPrestigeLabs/Glimp")
 EndFunc
@@ -678,9 +838,35 @@ Func DonateLink()
 EndFunc
 
 Func _CloseAbout()
-    ; @GUI_WinHandle restituisce l'handle della finestra che ha generato l'evento
-    GUIDelete(@GUI_WinHandle)
+    ; Use the specific handle to avoid deleting the main GUI
+    GUIDelete()
 EndFunc
 
+Func _CleanFileName($sText)
+    Local $aBad = ["\", "/", ":", "*", "?", '"', "<", ">", "|"]
+    For $char In $aBad
+        $sText = StringReplace($sText, $char, "_")
+    Next
+    Return $sText
+EndFunc
 
+Func TerminateApp()
+    Exit
+EndFunc
+
+; --- AVVIO APPLICAZIONE ---
+; Assicuriamoci che l'oggetto esista prima di procedere
+If Not IsObj($TagColors) Then $TagColors = ObjCreate("Scripting.Dictionary")
+
+SetupTray()
+LoadColors() ; Carica i colori prima della GUI
+
+HotKeySet("+!n", "QuickNote")
+HotKeySet("+!v", "ToggleGUI")
+
+ShowGUI() ; Ora puoi mostrare la GUI
+
+While 1
+    Sleep(100)
+WEnd
 
