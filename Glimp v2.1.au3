@@ -148,10 +148,12 @@ Func ShowGUI()
     GUICtrlSetBkColor(-1, 0xFFCCCC)
     GUICtrlSetOnEvent(-1, "DeleteNote")
 
-    GUICtrlCreateGroup($dTxt.Item("Exp"), 480, 5, 280, 60)
-    $idBtnExpDoc = GUICtrlCreateButton("DOC/TXT", 490, 25, 80, 30)
+	GUICtrlCreateGroup($dTxt.Item("Exp"), 480, 5, 280, 60)
+    $idBtnExpDoc = GUICtrlCreateButton("TXT", 490, 25, 40, 30) ; Separati per chiarezza
     GUICtrlSetOnEvent(-1, "ExportMultiTxt")
-    GUICtrlCreateButton("CSV", 575, 25, 50, 30)
+    GUICtrlCreateButton("DOC", 535, 25, 40, 30)
+    GUICtrlSetOnEvent(-1, "ExportMultiDoc") ; <--- Nuova funzione
+    GUICtrlCreateButton("CSV", 580, 25, 45, 30)
     GUICtrlSetOnEvent(-1, "ExportCSV")
     GUICtrlCreateButton("HTML", 630, 25, 120, 30)
     GUICtrlSetOnEvent(-1, "ExportAllData")
@@ -165,6 +167,7 @@ Func ShowGUI()
     $idSelectAll = GUICtrlCreateCheckbox($dTxt.Item("SelAll"), 10, 75, 60, 20)
     GUICtrlSetOnEvent(-1, "SelectAllAction")
 
+    ; --- CREAZIONE LISTVIEW ---
     $idList = GUICtrlCreateListView("Data Ora|Tag|Nota|Path", 10, 100, 1180, 640, $LVS_REPORT)
     _GUICtrlListView_SetExtendedListViewStyle($idList, BitOR($LVS_EX_FULLROWSELECT, $LVS_EX_CHECKBOXES, $LVS_EX_DOUBLEBUFFER))
     _GUICtrlListView_SetColumnWidth($idList, 0, 130)
@@ -172,16 +175,29 @@ Func ShowGUI()
     _GUICtrlListView_SetColumnWidth($idList, 2, 450)
     _GUICtrlListView_SetColumnWidth($idList, 3, 450)
 
+    ; --- MENU CONTESTUALE (TASTO DESTRO) ---
     $hMenuContext = GUICtrlCreateContextMenu($idList)
-    GUICtrlSetOnEvent(GUICtrlCreateMenuItem("Edit Tag", $hMenuContext), "EditTag")
-    GUICtrlSetOnEvent(GUICtrlCreateMenuItem("Edit Note", $hMenuContext), "EditNote")
+    GUICtrlCreateMenuItem("Edit Tag", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "EditTag")
+    GUICtrlCreateMenuItem("Edit Note", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "EditNote")
     GUICtrlCreateMenuItem("", $hMenuContext)
+
+    GUICtrlCreateMenuItem("Export to TXT", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "ExportMultiTxt")
+    GUICtrlCreateMenuItem("Export to DOC", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "ExportMultiDoc")
+    GUICtrlCreateMenuItem("", $hMenuContext)
+
+    GUICtrlCreateMenuItem("Open Media", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "OpenMedia")
+    GUICtrlCreateMenuItem("Open Folder", $hMenuContext)
+    GUICtrlSetOnEvent(-1, "OpenMediaFolder")
+    GUICtrlCreateMenuItem("", $hMenuContext)
+
     Local $idMenuDel = GUICtrlCreateMenuItem("Delete Note", $hMenuContext)
     GUICtrlSetOnEvent($idMenuDel, "DeleteNote")
-    GUICtrlSetColor($idMenuDel, 0xFF0000)
-    GUICtrlCreateMenuItem("", $hMenuContext)
-    GUICtrlSetOnEvent(GUICtrlCreateMenuItem("Open Media", $hMenuContext), "OpenMedia")
-    GUICtrlSetOnEvent(GUICtrlCreateMenuItem("Open Folder", $hMenuContext), "OpenMediaFolder")
+    GUICtrlSetColor($idMenuDel, 0xFF0000) ;Rosso per sicurezza
 
     GUIRegisterMsg($WM_NOTIFY, "WM_NOTIFY")
     LoadColors()
@@ -384,13 +400,53 @@ Func ExportCSV()
 EndFunc
 
 Func ExportMultiTxt()
-    Local $sCombined = ""
+    Local $sCombined = "", $iCount = 0, $sLastTag = "Glimp_Export"
     For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
         If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
-            $sCombined &= "DATE: " & _GUICtrlListView_GetItemText($idList, $i, 0) & @CRLF & "TAG: " & _GUICtrlListView_GetItemText($idList, $i, 1) & @CRLF & "NOTE: " & _GUICtrlListView_GetItemText($idList, $i, 2) & @CRLF & "---" & @CRLF
+            $iCount += 1
+            $sLastTag = _GUICtrlListView_GetItemText($idList, $i, 1) ; Prende il Tag
+            $sCombined &= "DATE: " & _GUICtrlListView_GetItemText($idList, $i, 0) & @CRLF & "TAG: " & $sLastTag & @CRLF & "NOTE: " & _GUICtrlListView_GetItemText($idList, $i, 2) & @CRLF & "---" & @CRLF
         EndIf
     Next
-    If $sCombined <> "" Then FileWrite(FileSaveDialog("Export", @DesktopDir, "Text (*.txt)", 18), $sCombined)
+
+    If $sCombined <> "" Then
+        ; Se è una sola nota, usa il Tag come nome file, altrimenti il nome generico
+        Local $sDefaultName = ($iCount = 1) ? $sLastTag & ".txt" : "Glimp_MultiExport.txt"
+        Local $sSave = FileSaveDialog("Export Text", @DesktopDir, "Text (*.txt)", 18, $sDefaultName)
+        If Not @error Then FileWrite($sSave, $sCombined)
+    EndIf
+EndFunc
+
+Func ExportMultiDoc()
+    Local $sCombined = "{\rtf1\ansi\deff0 {\fonttbl {\f0 Arial;}}" & @CRLF
+    Local $iCount = 0, $sLastTag = "Glimp_Export"
+
+    For $i = 0 To _GUICtrlListView_GetItemCount($idList) - 1
+        If _GUICtrlListView_GetItemChecked($idList, $i) Or _GUICtrlListView_GetItemSelected($idList, $i) Then
+            $iCount += 1
+            $sLastTag = _GUICtrlListView_GetItemText($idList, $i, 1) ; Prende il Tag
+            $sCombined &= "\b DATE: \b0 " & _GUICtrlListView_GetItemText($idList, $i, 0) & "\line " & _
+                          "\b TAG: \b0 "  & $sLastTag & "\line " & _
+                          "\b NOTE: \b0 " & _GUICtrlListView_GetItemText($idList, $i, 2) & "\line " & _
+                          "--------------------------------------------------\line "
+        EndIf
+    Next
+    $sCombined &= "}"
+
+    If $iCount > 0 Then
+        ; Se è una sola nota, usa il Tag come nome file, altrimenti il nome generico
+        Local $sDefaultName = ($iCount = 1) ? $sLastTag & ".doc" : "Glimp_MultiExport.doc"
+        Local $sSave = FileSaveDialog("Export Word Document", @DesktopDir, "Word Doc (*.doc)", 18, $sDefaultName)
+        If Not @error Then
+            If Not StringInStr($sSave, ".doc") Then $sSave &= ".doc"
+            Local $hFile = FileOpen($sSave, 2)
+            FileWrite($hFile, $sCombined)
+            FileClose($hFile)
+            MsgBox(64, $APP_NAME, "Export completed!")
+        EndIf
+    Else
+        MsgBox(48, $APP_NAME, "Please select at least one note to export.")
+    EndIf
 EndFunc
 
 Func ExportAllData()
@@ -462,12 +518,24 @@ Func ExportAllData()
                 "<td class='path'>" & $sPath & "</td></tr>"
     Next
 
-    $sHtml &= "</table></body></html>"
+$sHtml &= "</table></body></html>"
 
-    Local $hFile = FileOpen(@ScriptDir & "\Report_Glimp.html", 2 + 128)
-    FileWrite($hFile, $sHtml)
-    FileClose($hFile)
-    ShellExecute(@ScriptDir & "\Report_Glimp.html")
+    ; --- MODIFICA: Chiede all'utente dove salvare ---
+    Local $sSavePath = FileSaveDialog("Save HTML Report", @DesktopDir, "HTML Files (*.html;*.htm)", 18, "Report_Glimp.html")
+
+    If Not @error Then
+        ; Assicuriamoci che abbia l'estensione .html
+        If Not StringInStr($sSavePath, ".htm") Then $sSavePath &= ".html"
+
+        Local $hFile = FileOpen($sSavePath, 2 + 128) ; 2 = Overwrite, 128 = UTF-8
+        FileWrite($hFile, $sHtml)
+        FileClose($hFile)
+
+        ; Chiedi se vuoi aprirlo subito
+        If MsgBox(36, $APP_NAME, "Report saved successfully. Do you want to open it now?") = 6 Then
+            ShellExecute($sSavePath)
+        EndIf
+    EndIf
 EndFunc
 
 Func UpdateUIState()
@@ -613,5 +681,6 @@ Func _CloseAbout()
     ; @GUI_WinHandle restituisce l'handle della finestra che ha generato l'evento
     GUIDelete(@GUI_WinHandle)
 EndFunc
+
 
 
